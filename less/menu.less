@@ -53,6 +53,18 @@
 			.Select-option {
 				padding-left: @select-padding-horizontal * 3;
 			}
+			.Select-option-group {
+				text-indent: @select-padding-horizontal * 4;
+				.Select-option {
+					padding-left: @select-padding-horizontal * 4;
+				}
+				.Select-option-group {
+					text-indent: @select-padding-horizontal * 5;
+					.Select-option {
+						padding-left: @select-padding-horizontal * 5;
+					}
+				}
+			}
 		}
 	}
 }
