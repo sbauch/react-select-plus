@@ -690,10 +690,17 @@ var OptionGroup = _react2['default'].createClass({
 	propTypes: {
 		children: _react2['default'].PropTypes.any,
 		className: _react2['default'].PropTypes.string, // className (based on mouse position)
+		isDisabled: _react2['default'].PropTypes.bool, // the option is disabled
+		isFocused: _react2['default'].PropTypes.bool, // method to handle mouseEnter on option group label element
+		isFocused: _react2['default'].PropTypes.bool, // the option group is focused
+		isSelected: _react2['default'].PropTypes.bool, // the option group is selected
 		label: _react2['default'].PropTypes.node, // the heading to show above the child options
-		option: _react2['default'].PropTypes.object.isRequired },
+		onFocus: _react2['default'].PropTypes.func, // provide the onFocus function to highlight if selectGroup
+		onSelect: _react2['default'].PropTypes.func, // provide the onSelect function to select group if selectGroup
+		option: _react2['default'].PropTypes.object.isRequired, // object that is base for that option group
+		selectGroup: _react2['default'].PropTypes.bool },
 
-	// object that is base for that option group
+	// option to allow Groups to be selected
 	blockEvent: function blockEvent(event) {
 		event.preventDefault();
 		event.stopPropagation();
@@ -708,8 +715,23 @@ var OptionGroup = _react2['default'].createClass({
 	},
 
 	handleMouseDown: function handleMouseDown(event) {
+		var selectGroup = this.props.selectGroup;
+
 		event.preventDefault();
 		event.stopPropagation();
+		if (selectGroup) this.props.onSelect(this.props.option, event);
+	},
+
+	handleMouseEnter: function handleMouseEnter(event) {
+		var selectGroup = this.props.selectGroup;
+
+		if (selectGroup) this.onFocus(event);
+	},
+
+	handleMouseMove: function handleMouseMove(event) {
+		var selectGroup = this.props.selectGroup;
+
+		if (selectGroup) this.onFocus(event);
 	},
 
 	handleTouchEnd: function handleTouchEnd(event) {
@@ -730,10 +752,27 @@ var OptionGroup = _react2['default'].createClass({
 		this.dragging = false;
 	},
 
+	onFocus: function onFocus(event) {
+		if (!this.props.isFocused) {
+			this.props.onFocus(this.props.option, event);
+		}
+	},
+
 	render: function render() {
-		var option = this.props.option;
+		var _props = this.props;
+		var option = _props.option;
+		var selectGroup = _props.selectGroup;
+		var isFocused = _props.isFocused;
+		var isDisabled = _props.isDisabled;
 
 		var className = (0, _classnames2['default'])(this.props.className, option.className);
+
+		var groupLabelClassName = (0, _classnames2['default'])({
+			'Select-option-group-label': true,
+			'Select-option-group-label-selectable': selectGroup,
+			'is-focused': isFocused,
+			'is-disabled': isDisabled
+		});
 
 		return option.disabled ? _react2['default'].createElement(
 			'div',
@@ -746,15 +785,18 @@ var OptionGroup = _react2['default'].createClass({
 			{ className: className,
 				style: option.style,
 				onMouseDown: this.handleMouseDown,
-				onMouseEnter: this.handleMouseEnter,
-				onMouseMove: this.handleMouseMove,
+
 				onTouchStart: this.handleTouchStart,
 				onTouchMove: this.handleTouchMove,
 				onTouchEnd: this.handleTouchEnd,
 				title: option.title },
 			_react2['default'].createElement(
 				'div',
-				{ className: 'Select-option-group-label' },
+				{
+					className: groupLabelClassName,
+					onMouseEnter: this.handleMouseEnter,
+					onMouseMove: this.handleMouseMove
+				},
 				this.props.label
 			),
 			this.props.children
@@ -923,7 +965,12 @@ function filterOptions(options, filterValue, excludeOptions, props) {
 	});
 
 	return options.filter(function (option) {
-		if (excludeOptions && excludeOptions.indexOf(option[props.valueKey]) > -1) return false;
+		if (excludeOptions && excludeOptions.indexOf(option[props.valueKey]) > -1) {
+			if (option.group && props.selectGroup) {
+				option.group.options.splice(option);
+			}
+			return false;
+		}
 		if (props.filterOption) return props.filterOption.call(_this, option, filterValue);
 		if (!filterValue) return true;
 		var valueTest = String(option[props.valueKey]);
@@ -961,6 +1008,7 @@ function isGroup(option) {
 
 function menuRenderer(_ref) {
 	var focusedOption = _ref.focusedOption;
+	var selectGroup = _ref.selectGroup;
 	var instancePrefix = _ref.instancePrefix;
 	var labelKey = _ref.labelKey;
 	var onFocus = _ref.onFocus;
@@ -981,18 +1029,27 @@ function menuRenderer(_ref) {
 	var renderOptions = function renderOptions(optionsSubset) {
 		return optionsSubset.map(function (option, i) {
 			if (isGroup(option)) {
+				var isFocused = option === focusedOption;
+
 				var optionGroupClass = (0, _classnames2['default'])({
-					'Select-option-group': true
+					'Select-option-group': true,
+					'is-focused': isFocused,
+					'is-disabled': option.disabled
 				});
 
 				return _react2['default'].createElement(
 					OptionGroup,
 					{
 						className: optionGroupClass,
+						isDisabled: option.disabled,
+						isFocused: isFocused,
 						key: 'option-group-' + i,
 						label: renderLabel(option),
+						onFocus: onFocus,
+						onSelect: onSelect,
 						option: option,
-						optionIndex: i
+						optionIndex: i,
+						selectGroup: selectGroup
 					},
 					renderOptions(option.options)
 				);
@@ -1229,6 +1286,7 @@ var Select = _react2['default'].createClass({
 		resetValue: _react2['default'].PropTypes.any, // value to use when you clear the control
 		scrollMenuIntoView: _react2['default'].PropTypes.bool, // boolean to enable the viewport to shift so that the full menu fully visible when engaged
 		searchable: _react2['default'].PropTypes.bool, // whether to enable searching feature or not
+		selectGroup: _react2['default'].PropTypes.bool, // boolean to allow selection of entrire Groups
 		simpleValue: _react2['default'].PropTypes.bool, // pass the value to onChange as a simple value (legacy pre 1.0 mode), defaults to false
 		style: _react2['default'].PropTypes.object, // optional style to apply to the control
 		tabIndex: _react2['default'].PropTypes.string, // optional tab index of the control
@@ -1280,6 +1338,7 @@ var Select = _react2['default'].createClass({
 			required: false,
 			scrollMenuIntoView: true,
 			searchable: true,
+			selectGroup: false,
 			simpleValue: false,
 			tabSelectsValue: true,
 			valueComponent: _Value2['default'],
@@ -1784,7 +1843,20 @@ var Select = _react2['default'].createClass({
 
 	addValue: function addValue(value) {
 		var valueArray = this.getValueArray(this.props.value);
-		this.setValue(valueArray.concat(value));
+		var values = value.options ? this.valuesForGroup(value.options) : value;
+		this.setValue(valueArray.concat(values));
+	},
+
+	valuesForGroup: function valuesForGroup(ary) {
+		var ret = [];
+		for (var i = 0; i < ary.length; i++) {
+			if (Array.isArray(ary[i].options)) {
+				ret = ret.concat(this.valuesForGroup(ary[i].options));
+			} else {
+				ret.push(ary[i]);
+			}
+		}
+		return ret;
 	},
 
 	popValue: function popValue() {
@@ -2101,7 +2173,8 @@ var Select = _react2['default'].createClass({
 				labelKey: this.props.labelKey,
 				matchPos: this.props.matchPos,
 				matchProp: this.props.matchProp,
-				valueKey: this.props.valueKey
+				valueKey: this.props.valueKey,
+				selectGroup: this.props.selectGroup
 			});
 		} else {
 			return flatOptions;
@@ -2112,13 +2185,16 @@ var Select = _react2['default'].createClass({
 		if (!options) return [];
 		var flatOptions = [];
 		for (var i = 0; i < options.length; i++) {
-			// We clone each option with a pointer to its parent group for efficient unflattening
 			var optionCopy = clone(options[i]);
 			optionCopy.isInTree = false;
 			if (group) {
 				optionCopy.group = group;
 			}
 			if (isGroup(optionCopy)) {
+
+				optionCopy.isGroupHeading = true;
+				optionCopy.value = optionCopy.label;
+				if (this.props.selectGroup) flatOptions.push(optionCopy);
 				flatOptions = flatOptions.concat(this.flattenOptions(optionCopy.options, optionCopy));
 				optionCopy.options = [];
 			} else {
@@ -2138,8 +2214,9 @@ var Select = _react2['default'].createClass({
 			option.isInTree = false;
 			parent = option.group;
 			while (parent) {
+				parent.options = [];
+
 				if (parent.isInTree) {
-					parent.options = [];
 					parent.isInTree = false;
 				}
 				parent = parent.group;
@@ -2150,6 +2227,7 @@ var Select = _react2['default'].createClass({
 		flatOptions.forEach(function (option) {
 			child = option;
 			parent = child.group;
+
 			while (parent) {
 				if (!child.isInTree) {
 					parent.options.push(child);
@@ -2164,7 +2242,20 @@ var Select = _react2['default'].createClass({
 				child.isInTree = true;
 			}
 		});
+		groupedOptions = this.removeEmptyGroups(groupedOptions);
 		return groupedOptions;
+	},
+
+	removeEmptyGroups: function removeEmptyGroups(groupedOptions, groupHeading) {
+		var _this6 = this;
+
+		return groupedOptions.filter(function (item, index) {
+			if (!item.isGroupHeading) return true;
+			_this6.removeEmptyGroups(item.options, item);
+			if (item.options.length > 0) return true;
+			if (groupHeading) groupHeading.options.splice(index, 1);
+			return false;
+		});
 	},
 
 	onOptionRef: function onOptionRef(ref, isFocused) {
@@ -2189,6 +2280,7 @@ var Select = _react2['default'].createClass({
 				optionRenderer: this.props.optionRenderer || this.getOptionLabel,
 				options: options,
 				selectValue: this.selectValue,
+				selectGroup: this.props.selectGroup,
 				valueArray: valueArray,
 				valueKey: this.props.valueKey
 			});
@@ -2204,17 +2296,17 @@ var Select = _react2['default'].createClass({
 	},
 
 	renderHiddenField: function renderHiddenField(valueArray) {
-		var _this6 = this;
+		var _this7 = this;
 
 		if (!this.props.name) return;
 		if (this.props.joinValues) {
 			var value = valueArray.map(function (i) {
-				return stringifyValue(i[_this6.props.valueKey]);
+				return stringifyValue(i[_this7.props.valueKey]);
 			}).join(this.props.delimiter);
 			return _react2['default'].createElement('input', {
 				type: 'hidden',
 				ref: function (ref) {
-					return _this6.value = ref;
+					return _this7.value = ref;
 				},
 				name: this.props.name,
 				value: value,
@@ -2224,9 +2316,9 @@ var Select = _react2['default'].createClass({
 			return _react2['default'].createElement('input', { key: 'hidden.' + index,
 				type: 'hidden',
 				ref: 'value' + index,
-				name: _this6.props.name,
-				value: stringifyValue(item[_this6.props.valueKey]),
-				disabled: _this6.props.disabled });
+				name: _this7.props.name,
+				value: stringifyValue(item[_this7.props.valueKey]),
+				disabled: _this7.props.disabled });
 		});
 	},
 
@@ -2249,7 +2341,7 @@ var Select = _react2['default'].createClass({
 	},
 
 	renderOuter: function renderOuter(options, valueArray, focusedOption) {
-		var _this7 = this;
+		var _this8 = this;
 
 		var Dropdown = this.props.dropdownComponent;
 		var menu = this.renderMenu(options, valueArray, focusedOption);
@@ -2263,12 +2355,12 @@ var Select = _react2['default'].createClass({
 			_react2['default'].createElement(
 				'div',
 				{ ref: function (ref) {
-						return _this7.menuContainer = ref;
+						return _this8.menuContainer = ref;
 					}, className: 'Select-menu-outer', style: this.props.menuContainerStyle },
 				_react2['default'].createElement(
 					'div',
 					{ ref: function (ref) {
-							return _this7.menu = ref;
+							return _this8.menu = ref;
 						}, role: 'listbox', className: 'Select-menu', id: this._instancePrefix + '-list',
 						style: this.props.menuStyle,
 						onScroll: this.handleMenuScroll,
@@ -2280,11 +2372,12 @@ var Select = _react2['default'].createClass({
 	},
 
 	render: function render() {
-		var _this8 = this;
+		var _this9 = this;
 
 		var valueArray = this.getValueArray(this.props.value);
 		this._visibleOptions = this.filterFlatOptions(this.props.multi ? valueArray : null);
 		var options = this.unflattenOptions(this._visibleOptions);
+
 		var isOpen = typeof this.props.isOpen === 'boolean' ? this.props.isOpen : this.state.isOpen;
 		if (this.props.multi && !options.length && valueArray.length && !this.state.inputValue) isOpen = false;
 		var focusedOptionIndex = this.getFocusableOptionIndex(valueArray[0]);
@@ -2295,6 +2388,7 @@ var Select = _react2['default'].createClass({
 		} else {
 			focusedOption = this._focusedOption = null;
 		}
+
 		var className = (0, _classnames2['default'])('Select', this.props.className, {
 			'Select--multi': this.props.multi,
 			'Select--single': !this.props.multi,
@@ -2319,7 +2413,7 @@ var Select = _react2['default'].createClass({
 		return _react2['default'].createElement(
 			'div',
 			{ ref: function (ref) {
-					return _this8.wrapper = ref;
+					return _this9.wrapper = ref;
 				},
 				className: className,
 				style: this.props.wrapperStyle },
@@ -2327,7 +2421,7 @@ var Select = _react2['default'].createClass({
 			_react2['default'].createElement(
 				'div',
 				{ ref: function (ref) {
-						return _this8.control = ref;
+						return _this9.control = ref;
 					},
 					className: 'Select-control',
 					style: this.props.style,
